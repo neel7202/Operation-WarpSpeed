@@ -1,0 +1,254 @@
+---
+title: "QTM151 Final Project"
+author: "Neel Mirani, Marianna Ahlquist, Claudia Wahoski, Jared Anwar, Emily Edwards"
+date: "12/9/2020"
+output: html_document
+---
+COVID-19 Vaccine Distribution Reccommendation
+
+```{r setup, include=FALSE}
+require("knitr")
+opts_knit$set(root.dir = "/Users/eedwards/Documents")
+knitr::opts_chunk$set(echo = TRUE)
+chooseCRANmirror(graphics=FALSE, ind=1)
+knitr::opts_chunk$set(echo = TRUE)
+
+library(maps) 
+library(ggmap)
+library(tidyverse)
+library(nycflights13)
+library(purrr)
+library(plotly)
+install.packages("lubridate")
+install.packages("ggplot2")
+install.packages("data.table")
+install.packages("ggrepel")
+install.packages("dplyr")
+install.packages("data.table")
+install.packages("tidyverse")
+
+if(!requireNamespace("devtools")) install.packages("devtools")
+COVID_TOTALS_lowercase <- read.csv("~/Documents/COVID_TOTALS_lowercase.csv")
+Provisional_COVID.19_Death_Counts_by_Sex__Age__and_State <- read.csv("~/Desktop/COVID/Provisional_COVID-19_Death_Counts_by_Sex__Age__and_State.csv")
+daata <- read.csv("~/Desktop/COVID/Provisional_Death_Counts_for_Coronavirus_Disease__COVID-19___Distribution_of_Deaths_by_Race_and_Hispanic_Origin (1).csv")
+
+SexAge <- read_csv("~/Desktop/COVID/Provisional_COVID-19_Death_Counts_by_Sex__Age__and_State.csv")
+RaceEthnicity <- read.csv("~/Desktop/COVID/Provisional_Death_Counts_for_Coronavirus_Disease__COVID-19___Distribution_of_Deaths_by_Race_and_Hispanic_Origin (1).csv")
+```
+
+
+```{r, warning = FALSE, message = FALSE}
+northeast <- c("Connecticut", "Maine", "Massachusetts", "New Hampshire", "Rhode Island", "Vermont", "New Jersey", "New York", "Pennsylvania", "New York City")
+midwest <- c("Illinois", "Indiana", "Michigan", "Ohio", "Wisconsin", "Iowa", "Kansas", "Minnesota", "Missouri", "Nebraska", "North Dakota", "South Dakota")
+south <- c("Delaware", "Oklahoma", "Florida", "Tennessee", "Texas", "Kentucky", "Arkansas", "Louisiana", "Georgia", "Alabama", "Maryland", "North Carolina", "South Carolina", "Virginia", "District of Columbia", "Mississippi", "West Virginia")
+west <- c("Arizona", "Colorado", "Idaho", "Montana", "Nevada", "New Mexico", "Utah", "Wyoming", "Alaska", "California", "Hawaii", "Oregon", "Washington")
+
+
+SexAge$Region <- SexAge$State
+
+for(i in seq(1, nrow(SexAge), 1)){
+  if (SexAge$State[i] %in% northeast)
+  {
+    SexAge$Region[i] <- "northeast"
+  }
+  else if (SexAge$State[i] %in% south)
+  {
+    SexAge$Region[i] <- "south"
+  }
+  else if (SexAge$State[i] %in% midwest)
+  {
+    SexAge$Region[i] <- "midwest"
+  }
+  else if (SexAge$State[i] %in% west)
+  {
+    SexAge$Region[i] <- "west"
+  }
+}
+
+RaceEthnicity$Region <- RaceEthnicity$State
+
+for(i in seq(1, nrow(RaceEthnicity), 1)){
+  if (RaceEthnicity$State[i] %in% northeast)
+  {
+    RaceEthnicity$Region[i] <- "northeast"
+  }
+  else if (RaceEthnicity$State[i] %in% south)
+  {
+    RaceEthnicity$Region[i] <- "south"
+  }
+  else if (RaceEthnicity$State[i] %in% midwest)
+  {
+    RaceEthnicity$Region[i] <- "midwest"
+  }
+  else if (RaceEthnicity$State[i] %in% west)
+  {
+    RaceEthnicity$Region[i] <- "west"
+  }
+}
+
+
+```
+
+# Ethnicity and COVID-19 deaths
+```{r}
+RaceEthnicity<- pivot_longer(RaceEthnicity, c(`Non.Hispanic.White`,`Non.Hispanic.Black.or.African.American`, `Non.Hispanic.American.Indian.or.Alaska.Native`,`Non.Hispanic.Asian`,`Non.Hispanic.Native.Hawaiian.or.Other.Pacific.Islander`,`Hispanic.or.Latino`,`Other`),names_to="Ethnicity",values_to="Proportion")
+
+Marianna <- RaceEthnicity %>%
+  filter(Indicator == "Distribution of COVID-19 deaths (%)" | Indicator == "Unweighted distribution of population (%)") %>%
+  pivot_wider(names_from = "Indicator", values_from = "Proportion") %>%
+  filter(Region != "United States")%>%
+  group_by(Region, Ethnicity) %>%
+  summarize(`Distribution of COVID deaths (%)` = mean(`Distribution of COVID-19 deaths (%)`, na.rm = TRUE), `Distribution of Pop (%)` = mean(`Unweighted distribution of population (%)`, na.rm = TRUE)) %>%
+  pivot_longer(c("Distribution of COVID deaths (%)", "Distribution of Pop (%)"), names_to = "indicator", values_to="Proportion")
+
+
+  p_1<-ggplot(Marianna, aes(x = Proportion, y = Ethnicity, fill = indicator)) + facet_wrap(~Region) + geom_bar(stat = "identity")
+  p_1 + theme(legend.position = "bottom", legend.title = element_blank())
+```
+
+# Gender and COVID-19 Deaths
+```{r}
+
+#Create a new dataset that only includes COVID deaths variable
+
+COVID_gender <- SexAge %>% select(Sex, State, `COVID-19 Deaths`, `Age group`)
+COVID_gender
+
+#BAsed on this table, as of December 9, 2020, there have been a total of 261,530 deaths caused by COVID-19. 
+
+COVID_sex <- COVID_gender %>% filter(`Age group`== "All Ages", State=="United States")
+COVID_sex
+
+#Create a bar plot to show the distribution of deaths by sex
+
+graph <- plot_ly(COVID_sex, x=~Sex, y=~`COVID-19 Deaths`, type="bar", color=~Sex)
+graph
+
+
+
+COVID_gender <- SexAge %>% select(Sex, State, `COVID-19 Deaths`, `Age group`, Region)
+
+COVID_sex <- COVID_gender %>% 
+  filter(`Age group`== "All Ages") %>%
+  filter(Region != "United States" & Region != "Puerto Rico")%>%
+  group_by(Region, Sex) %>%
+  summarize(deaths = sum(`COVID-19 Deaths`, na.rm = TRUE))
+ 
+p_2 <- ggplot(COVID_sex, aes(x = COVID_sex$Sex, y = COVID_sex$deaths, fill = COVID_sex$Sex)) + geom_bar(stat = "identity") + facet_wrap(~Region) + ylab("Deaths") + xlab("Sex") + ggtitle("Relationship between Sex and Covid-19 deaths by region") + labs(fill = "Sex")
+ggplotly(p_2)
+```
+
+
+# Age and COVID-19 deaths 
+```{r}
+COVIDage <- Provisional_COVID.19_Death_Counts_by_Sex__Age__and_State
+
+AgeGroup0 <- COVIDage %>%
+  filter(State=="United States", Sex=="All Sexes",Age.group==c("0-17 years"))
+    
+AgeGroup1 <- COVIDage %>%
+  filter(State=="United States", Sex=="All Sexes",Age.group==c("18-29 years","50-64 years"))
+
+AgeGroup2 <- COVIDage %>%
+  filter(State=="United States", Sex=="All Sexes",Age.group==c("30-49 years","65-74 years"))
+
+AgeGroup3 <- COVIDage %>%
+  filter(State=="United States", Sex=="All Sexes",Age.group==c("85 years and over"))
+
+DeathvsAge <- bind_rows(AgeGroup0, AgeGroup1, AgeGroup2, AgeGroup3) %>% 
+                arrange(desc(Age.group)) %>% 
+                  select(-c(8:13))
+DeathvsAge %>%
+  ggplot(aes(x=Age.group,y=COVID.19.Deaths)) +
+    geom_bar(stat="identity", col="red", fill="steelblue")
+```
+
+
+```{r}
+COVIDage <- SexAge %>%
+  group_by(`Age group`, Region)%>%
+  summarize(covidDeaths = sum(`COVID-19 Deaths`, na.rm = TRUE)) %>%
+  filter(Region != "Puerto Rico" & Region != "United States")%>%
+  filter(`Age group` != "Under 1 year" & `Age group` != "All Ages" & `Age group` != "1-4 years" & `Age group` != "5-14 years")
+
+ggplot(COVIDage, aes(x = `Age group`, y = covidDeaths)) + geom_bar(stat = "identity", col = "red", fill = "steelblue") + facet_wrap(~Region) + coord_flip() + ylab("Covid-19 Deaths")
+
+```
+
+# Map of states with top 5 COVID-19 deaths
+```{r}
+
+# Code used to produce map of states most impacted by COVID-19
+
+states<-map_data("state")
+top_5<- subset(states, region %in% c("texas", "california", "florida", "new jersey", "new york"))
+
+ggplot(data = top_5) + 
+  geom_polygon(aes(x = long, y = lat, group = group), fill = "palegreen", color = "black") + 
+  coord_fixed(1.3)
+
+```
+
+# COVID-19 deaths per state
+```{r}
+# Code used to create graph of COVID-19 deaths by state
+covid_totals<- COVID_TOTALS_lowercase%>%
+  select(State, COVID.19.Deaths)
+map_covid <- left_join(covid_totals, states, by= c("State"="region"))
+
+ggplot(map_covid, aes(long, lat, group = group)) +
+        geom_polygon(aes(fill = COVID.19.Deaths, color="yellow"),
+                     colour = alpha("red", 1/2))  +
+          scale_fill_gradient(low="blue", high="red",
+                              breaks = c(2, 4, 10, 100, 1000, 10000),
+                              trans = "log10")+
+        geom_polygon(data = states, colour = "black", fill = NA) + 
+        theme_void() +
+  coord_fixed(1.2) 
+
+
+```
+
+# Sex and COVID-19 deaths by State
+```{r}
+# Code used to produce graph of COVID-19 deaths by sex in the 5 states with the most COVID-19 deaths
+sex_age_state<- Provisional_COVID.19_Death_Counts_by_Sex__Age__and_State
+graph_data_ggplot <- sex_age_state%>%
+  filter(State==c("Texas", "California", "Florida", "New Jersey", "New York"), Sex== c("Male", "Female"))
+
+
+graph_state_sex<- ggplot(graph_data_ggplot, aes(fill=Sex, y=COVID.19.Deaths, x=State))+
+  geom_bar(position = "stack", stat = "identity")
+graph_state_sex
+```
+
+# Age and COVID-19 deaths by State
+```{r}
+# Code used to produce graph of COVID-19 deaths by age in the 5 states with the most COVID-19 deaths
+sex_state <- sex_age_state%>%
+  filter(State==c("Texas", "California", "Florida", "New Jersey", "New York"), Age.group!= "All Ages")
+
+
+age_graph <- ggplot(sex_state, aes(fill=Age.group, y=COVID.19.Deaths, x=State))+
+  geom_bar(position = "stack", stat = "identity")
+age_graph
+```
+
+# Ethnicity and COVID-19 deaths by State
+```{r}
+# Code used to produce graph of COVID-19 deaths by ethnicity in the 5 states with the most COVID-19 deaths
+ethnicity_covid<-daata[c(5:208),-c(13)]
+
+newest_ethnicity<- ethnicity_covid%>%
+  filter(Indicator!= c("Count of COVID-19 deaths","Weighted distribution of population (%)"))
+
+newest_ethnicitycovid<-pivot_longer(newest_ethnicity,c(`Non.Hispanic.White`,`Non.Hispanic.Black.or.African.American`, `Non.Hispanic.American.Indian.or.Alaska.Native`,`Non.Hispanic.Asian`,`Hispanic.or.Latino`,`Other`),names_to="Ethnicity",values_to="Proportion")
+
+new_newest_ethnicitycovid<- newest_ethnicitycovid%>%
+  filter(State==c("Texas", "California", "Florida", "New Jersey", "New York"))
+
+race_graph <- ggplot(new_newest_ethnicitycovid, aes(fill=Ethnicity, y=Proportion, x=State))+
+  geom_bar(position = "stack", stat = "identity")
+race_graph
+```
+
