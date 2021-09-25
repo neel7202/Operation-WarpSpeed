@@ -93,6 +93,7 @@ for(i in seq(1, nrow(RaceEthnicity), 1)){
 ```{r}
 RaceEthnicity<- pivot_longer(RaceEthnicity, c(`Non.Hispanic.White`,`Non.Hispanic.Black.or.African.American`, `Non.Hispanic.American.Indian.or.Alaska.Native`,`Non.Hispanic.Asian`,`Non.Hispanic.Native.Hawaiian.or.Other.Pacific.Islander`,`Hispanic.or.Latino`,`Other`),names_to="Ethnicity",values_to="Proportion")
 
+# Neel's Section: Graphing Covid deaths relative to each ethnicity by region
 Marianna <- RaceEthnicity %>%
   filter(Indicator == "Distribution of COVID-19 deaths (%)" | Indicator == "Unweighted distribution of population (%)") %>%
   pivot_wider(names_from = "Indicator", values_from = "Proportion") %>%
@@ -128,6 +129,8 @@ graph
 
 COVID_gender <- SexAge %>% select(Sex, State, `COVID-19 Deaths`, `Age group`, Region)
 
+
+# Neel's Section: Graphing Covid deaths relative to each sex by region
 COVID_sex <- COVID_gender %>% 
   filter(`Age group`== "All Ages") %>%
   filter(Region != "United States" & Region != "Puerto Rico")%>%
@@ -141,6 +144,9 @@ ggplotly(p_2)
 
 # Age and COVID-19 deaths 
 ```{r}
+
+# Neel's Section: Grouping data by age group to graph Covid death relative to each age group by region
+
 COVIDage <- Provisional_COVID.19_Death_Counts_by_Sex__Age__and_State
 
 AgeGroup0 <- COVIDage %>%
